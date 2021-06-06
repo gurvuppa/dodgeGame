@@ -35,6 +35,8 @@ namespace dodgeGame
         bool sDown = false;
         bool dDown = false;
 
+        string gameState = "waiting";
+
         SolidBrush whiteBrush = new SolidBrush(Color.White);
         SolidBrush goldBrush = new SolidBrush(Color.Gold);
 
@@ -45,12 +47,24 @@ namespace dodgeGame
         {
             InitializeComponent();
 
-            //spwan the first obsticle on each side
-            leftObsticle.Add(new Rectangle(150, 5, 10, 60));
-            rightObsticle.Add(new Rectangle(450, 350, 10, 60));
         }
 
-        private void Form1_KeyDown(object sender, KeyEventArgs e)
+        public void GameInitialize()
+        {
+            //spwan the first obsticle on each side and hero
+            leftObsticle.Add(new Rectangle(150, 5, 10, 60));
+            rightObsticle.Add(new Rectangle(450, 350, 10, 60));
+            hero.X = 50;
+            hero.Y = 200;
+
+            titleLabel.Text = "";
+            subTitleLabel.Text = "";
+
+            gameTimer.Enabled = true;
+            gameState = "running";
+        }
+
+            private void Form1_KeyDown(object sender, KeyEventArgs e)
         {
             switch (e.KeyCode)
             {
@@ -65,6 +79,18 @@ namespace dodgeGame
                     break;
                 case Keys.D:
                     dDown = true;
+                    break;
+                case Keys.Space:
+                    if (gameState == "waiting" || gameState == "over" || gameState == "win")
+                    {
+                        GameInitialize();
+                    }
+                    break;
+                case Keys.Escape:
+                    if (gameState == "waiting" || gameState == "over" || gameState == "win")
+                    {
+                        Application.Exit();
+                    }
                     break;
             }
         }
@@ -93,77 +119,20 @@ namespace dodgeGame
             //move hero
             moveHero();
 
-            // move the left obsticles
-            for (int i = 0; i < leftObsticle.Count(); i++)
-            {
-                //find the new postion of y based on speed 
-                int y = leftObsticle[i].Y + LEFT_SPEED;
-
-                //replace the rectangle in the list with updated one using new y 
-                leftObsticle[i] = new Rectangle(leftObsticle[i].X, y, 10, 60);
-            }
-
-            // move the right obsticles
-            for (int i = 0; i < rightObsticle.Count(); i++)
-            {
-                //find the new postion of y based on speed 
-                int y = rightObsticle[i].Y + RIGHT_SPEED;
-
-                //replace the rectangle in the list with updated one using new y 
-                rightObsticle[i] = new Rectangle(rightObsticle[i].X, y, 10, 60);
-
-            }
+            // move the Obsticles
+            moveObsticles();
 
             //create more obsticles
-            if (leftCounter == 18)
-            {
-                leftObsticle.Add(new Rectangle(150, 0, 10, 60));
-                leftCounter = 0;
-            }
-            if (rightCounter == 18)
-            {
-                rightObsticle.Add(new Rectangle(450, 350, 10, 60));
-                rightCounter = 0;
-            }
+            spawnObsticles();
 
             //remove obsticles when hit the ground
-            for (int i = 0; i < leftObsticle.Count(); i++)
-            {
-                if (leftObsticle[i].Y > this.Height - 60 )
-                {
-                    leftObsticle.RemoveAt(i);
-                }
-            }
-
-            for (int i = 0; i < rightObsticle.Count(); i++)
-            {
-                if (rightObsticle[i].Y < 0)
-                {
-                    rightObsticle.RemoveAt(i);
-                }
-            }
+            deleteObsticles();
 
             //if hero collids with obsticles
-            for (int i = 0; i < leftObsticle.Count(); i++)
-            {
-                if (hero.IntersectsWith(leftObsticle[i]))
-                {
-                    gameTimer.Enabled = false;
-                }
-            }
-            for (int i = 0; i < rightObsticle.Count(); i++)
-            {
-                if (hero.IntersectsWith(rightObsticle[i]))
-                {
-                    gameTimer.Enabled = false;
-                }
-            }
+            obsticleCollision();
 
             //if hero gets to the right wall
-            if (hero.X > this.Width - 25)
-            {
-                gameTimer.Enabled = false;
-            }
+            heroWins();
 
             leftCounter++;
             rightCounter++;
@@ -173,19 +142,39 @@ namespace dodgeGame
 
         private void Form1_Paint(object sender, PaintEventArgs e)
         {
-            e.Graphics.FillRectangle(whiteBrush, hero);
-            
-            for (int i = 0; i < leftObsticle.Count(); i++)
-            { 
-                e.Graphics.FillRectangle(whiteBrush, leftObsticle[i]);
-            }
+            if (gameState == "waiting")
 
-            for (int i = 0; i < rightObsticle.Count(); i++)
             {
-                e.Graphics.FillRectangle(whiteBrush, rightObsticle[i]);
+                titleLabel.Text = "Dodge Runner 1995";
+                subTitleLabel.Text = "Press Space Bar to Start or Escape to Exit";
             }
-        }
+            else if (gameState == "running")
+            {
+                e.Graphics.FillRectangle(goldBrush, hero);
 
+                for (int i = 0; i < leftObsticle.Count(); i++)
+                {
+                    e.Graphics.FillRectangle(whiteBrush, leftObsticle[i]);
+                }
+
+                for (int i = 0; i < rightObsticle.Count(); i++)
+                {
+                    e.Graphics.FillRectangle(whiteBrush, rightObsticle[i]);
+                }
+            }
+            else if (gameState == "over")
+            {
+                titleLabel.Text = "THEY GOT YOU";
+                subTitleLabel.Text += "\nPress Space Bar to Play Again or Escape to Exit";
+            }
+            else if (gameState == "win")
+            {
+                titleLabel.Text = "MISSION COMPLETE";
+                subTitleLabel.Text += "\nPress Space Bar to Play Again or Escape to Exit";
+            }
+
+        }
+        
         public void moveHero()
         {
             if (wDown == true && hero.Y > 5)
@@ -208,6 +197,98 @@ namespace dodgeGame
                 hero.X += HERO_SPEED;
             }
         }
+
+        public void moveObsticles()
+        {
+            for (int i = 0; i < leftObsticle.Count(); i++)
+            {
+                //find the new postion of y based on speed 
+                int y = leftObsticle[i].Y + LEFT_SPEED;
+
+                //replace the rectangle in the list with updated one using new y 
+                leftObsticle[i] = new Rectangle(leftObsticle[i].X, y, 10, 60);
+            }
+
+            // move the right obsticles
+            for (int i = 0; i < rightObsticle.Count(); i++)
+            {
+                //find the new postion of y based on speed 
+                int y = rightObsticle[i].Y + RIGHT_SPEED;
+
+                //replace the rectangle in the list with updated one using new y 
+                rightObsticle[i] = new Rectangle(rightObsticle[i].X, y, 10, 60);
+
+            }
+        }
+
+        public void spawnObsticles()
+        {
+            if (leftCounter == 18)
+            {
+                leftObsticle.Add(new Rectangle(150, 0, 10, 60));
+                leftCounter = 0;
+            }
+            if (rightCounter == 18)
+            {
+                rightObsticle.Add(new Rectangle(450, 350, 10, 60));
+                rightCounter = 0;
+            }
+        }
+
+        public void deleteObsticles()
+        {
+            for (int i = 0; i < leftObsticle.Count(); i++)
+            {
+                if (leftObsticle[i].Y > this.Height - 60)
+                {
+                    leftObsticle.RemoveAt(i);
+                }
+            }
+            for (int i = 0; i < rightObsticle.Count(); i++)
+            {
+                if (rightObsticle[i].Y < 0)
+                {
+                    rightObsticle.RemoveAt(i);
+                }
+            }
+        }
+
+        public void obsticleCollision()
+        {
+            for (int i = 0; i < leftObsticle.Count(); i++)
+            {
+                if (hero.IntersectsWith(leftObsticle[i]))
+                {
+                    gameTimer.Enabled = false;
+                    gameState = "over";
+                }
+            }
+            for (int i = 0; i < rightObsticle.Count(); i++)
+            {
+                if (hero.IntersectsWith(rightObsticle[i]))
+                {
+                    gameTimer.Enabled = false;
+                    gameState = "over";
+                }
+            }
+        }
+
+        public void heroWins()
+        {
+            if (hero.X > this.Width - 25)
+            {
+                gameTimer.Enabled = false;
+                gameState = "win";
+            }
+        }
+
+
+
+
+
+
+
+
     }
 }
 
